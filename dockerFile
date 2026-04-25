@@ -58,6 +58,21 @@ RUN cd /tmp && wget https://github.com/strasdat/Sophus/archive/refs/tags/1.24.6.
         make install && \
         cd / && rm -rf /tmp/Sophus-1.24.6
 
+RUN cd /tmp && git clone https://github.com/stevenlovegrove/Pangolin.git && \
+        cd Pangolin && \
+        git checkout v0.8 && \
+        git submodule update --init --recursive && \
+        sed -i 's/\bsudo\b//g' ./scripts/install_prerequisites.sh && \
+        sed -i 's/install --no-install-suggests --no-install-recommends/install -y --no-install-suggests --no-install-recommends/g' ./scripts/install_prerequisites.sh && \
+        apt-get update && \
+        ./scripts/install_prerequisites.sh recommended && \
+        cmake -B build && \
+        cmake --build build && \
+        cmake --install build && \
+        rm -rf /tmp/Pangolin
+RUN ldconfig
+
+
 WORKDIR /workspace
 
 CMD ["/bin/bash"]

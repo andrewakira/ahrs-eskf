@@ -12,6 +12,7 @@ find_package(depthai CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Eigen3 3.4 REQUIRED)
 find_package(Sophus REQUIRED)
+find_package(Pangolin REQUIRED)
 
 # building library
 add_library(depthai_sensor
@@ -20,13 +21,15 @@ add_library(depthai_sensor
 target_include_directories(depthai_sensor PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${OpenCV_INCLUDE_DIRS}
+    ${Pangolin_INCLUDE_DIRS}
 )
 target_link_libraries(depthai_sensor PUBLIC
     depthai::opencv
     ${OpenCV_LIBS}
     Threads::Threads
     Eigen3::Eigen
-    Sophus::Sophus 
+    Sophus::Sophus
+    ${Pangolin_LIBRARIES}
 )
 
 # building exe
