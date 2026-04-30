@@ -1,17 +1,53 @@
 #include "ImuAttitudeFilter.hpp"
 
-ImuAttitudeFilter::ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise) {
+ImuAttitudeFilter::ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise, double initialCovarianceStd) {
     this->sigmaGyroBiasNoise = sigmaGyroBiasNoise;
     this->sigmaGyroNoise = sigmaGyroNoise;
     this->sigmaAcceNoise = sigmaAcceNoise;  
 
     this->qNominal = Eigen::Quaterniond::Identity();
     this->bgNominal = Eigen::Vector3d::Zero();
-    this->P = Eigen::Matrix<double, 6, 6>::Identity();
+    this->P = Eigen::Matrix<double, 6, 6>::Identity() * (initialCovarianceStd * initialCovarianceStd);
     this->hasLastImu = false; 
 }
 
 ImuAttitudeFilter::~ImuAttitudeFilter() {
+}
+
+bool ImuAttitudeFilter::initState(const IMU& imu) {
+    if (initCount >= initMaxCount) {
+        return true;
+    }
+     
+    double aNorm = imu.acce.norm();
+    if (std::abs(aNorm - gravityNorm) > accelGate) {
+        initCount = 0;
+        accelMean.setZero();
+        gyroMean.setZero();
+        return false;
+    }
+
+    if (imu.gyro.norm() > gyroGate) {
+        initCount = 0;
+        accelMean.setZero();
+        gyroMean.setZero();
+        return false;
+    }
+
+    const Eigen::Vector3d a = imu.acce / aNorm;
+    accelMean += a / initMaxCount;
+    gyroMean += imu.gyro / initMaxCount;
+    initCount++;
+
+    if (initCount >= initMaxCount) {
+        // Beacause accelMean - R^T gravityRefWorld = 0, so we need to find R by Quaterniond::FromTwoVectors
+        Eigen::Quaterniond q = Eigen::Quaterniond::FromTwoVectors(accelMean, gravityRefWorld);
+        qNominal = q.normalized();
+        bgNominal = gyroMean;
+        return true;
+    }
+    
+    return false;
 }
 
 void ImuAttitudeFilter::predict(const IMU& imu) {
@@ -100,9 +136,8 @@ bool ImuAttitudeFilter::updateAccel(const IMU& imu) {
     }
 
     const Eigen::Vector3d z = imu.acce / aNorm;
-    const Eigen::Vector3d bRef(0.0, 0.0, 1.0);
 
-    update(z, bRef, sigmaAcceNoise);
+    update(z, gravityRefWorld, sigmaAcceNoise);
     return true;
 }
 
