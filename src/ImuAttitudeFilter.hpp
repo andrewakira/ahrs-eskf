@@ -18,6 +18,9 @@ public:
     bool updateAccel(const IMU& imu);
     void reset();
 
+    Eigen::Quaterniond getQuaternion();
+    Eigen::Vector3d getBgNominal();
+
     static Eigen::Quaterniond rotvecToQuat(const Eigen::Vector3d& rotvec);
     static Eigen::Matrix3d rotvecToMatrix(const Eigen::Vector3d& rotvec);
     static Eigen::Matrix3d skew(const Eigen::Vector3d& v);

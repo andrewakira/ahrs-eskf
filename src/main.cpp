@@ -3,6 +3,7 @@
 #include "DepthAISensor.hpp"
 //#include "IMUIntegration.hpp"
 #include "ImuAttitudeFilter.hpp"
+#include "ImuVisualizer.hpp"
 
 using namespace cv;
 using namespace std;
@@ -14,30 +15,42 @@ int main(int argc, char** argv) {
     Eigen::Vector3d bg = Eigen::Vector3d::Zero();
     Eigen::Vector3d ba = Eigen::Vector3d::Zero();
 
-    ImuAttitudeFilter imuAttitudeFilter(0.1, 0.1, 0.1);
+    ImuAttitudeFilter imuAttitudeFilter(0.00015702853512975353, 0.014488592710622498, 0.2624646451739678*10);
     DepthAISensor depthAISensor;
     
-    
+
+    ImuVisualizer viewer;
     depthAISensor.setImuCallback(
-        [&imuAttitudeFilter](const DepthAISensor::ImuData& imu) {
-            static double lastTime = 0;
-            IMU data(imu.timestamp, Eigen::Vector3d(imu.gyro[0], imu.gyro[1], imu.gyro[2]), Eigen::Vector3d(imu.accel[0], imu.accel[1], imu.accel[2]));
-            
-            if (fabs(data.timestamp - lastTime) > 1) {
-                lastTime = data.timestamp;
-                std::cout << "t: " << data.timestamp
-                        << " | gyro: [" << data.gyro.x() << ", "
-                                        << data.gyro.y() << ", "
-                                        << data.gyro.z() << "]"
-                        << " | acc: [" << data.acce.x() << ", "
-                                        << data.acce.y() << ", "
-                                        << data.acce.z() << "]"
-                        << std::endl;
-            }
+        [&viewer, &imuAttitudeFilter](const DepthAISensor::ImuData& imu) {
+            IMU data(
+                imu.timestamp,
+                Eigen::Vector3d(imu.gyro[0], imu.gyro[1], imu.gyro[2]),
+                Eigen::Vector3d(imu.accel[0], imu.accel[1], imu.accel[2])
+            );
+
+            imuAttitudeFilter.predict(data);
+            imuAttitudeFilter.updateAccel(data);
+
+            Eigen::Quaterniond q = imuAttitudeFilter.getQuaternion();
+            Eigen::Vector3d bgNominal = imuAttitudeFilter.getBgNominal();
+
+
+            viewer.pushImu(
+                imu.accel[0], imu.accel[1], imu.accel[2],
+                imu.gyro[0],  imu.gyro[1],  imu.gyro[2],
+                q
+            );
         }
     );
-    
+
+
     depthAISensor.start();
+
+    while (!viewer.shouldQuit()) {
+        viewer.renderOnce();
+        this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
 
     namedWindow("name");
     while(true) {

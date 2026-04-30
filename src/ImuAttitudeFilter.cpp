@@ -52,13 +52,13 @@ void ImuAttitudeFilter::predict(const IMU& imu) {
 
 void ImuAttitudeFilter::update(const Eigen::Vector3d& z, const Eigen::Vector3d& bRef, const double measureStd) {
     Eigen::Matrix3d  Rq = qNominal.toRotationMatrix();
-    Eigen::Vector3d zHat = Rq * bRef;
+    Eigen::Vector3d zHat = Rq.transpose() * bRef;
     const Eigen::Vector3d r = z - zHat;
 
     // 1. Kalman Gain K
     // H = [ -R(q) [bRef]x   0 ]
     Eigen::Matrix<double, 3, 6> H = Eigen::Matrix<double, 3, 6>::Zero();
-    H.block<3, 3>(0, 0) = -Rq * skew(bRef) ;//* rightJacobianSO3();
+    H.block<3, 3>(0, 0) = skew(zHat);
     H.block<3, 3>(0, 3) = Eigen::Matrix3d::Zero();
 
     //K = PH^T(HPH^T+R)^{-1}
@@ -104,6 +104,14 @@ bool ImuAttitudeFilter::updateAccel(const IMU& imu) {
 
     update(z, bRef, sigmaAcceNoise);
     return true;
+}
+
+Eigen::Quaterniond ImuAttitudeFilter::getQuaternion() {
+    return qNominal;
+}
+
+Eigen::Vector3d ImuAttitudeFilter::getBgNominal() {
+    return bgNominal;
 }
 
 
