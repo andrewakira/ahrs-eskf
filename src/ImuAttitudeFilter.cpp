@@ -92,7 +92,7 @@ void ImuAttitudeFilter::update(const Eigen::Vector3d& z, const Eigen::Vector3d& 
     const Eigen::Vector3d r = z - zHat;
 
     // 1. Kalman Gain K
-    // H = [ -R(q) [bRef]x   0 ]
+    // H = [ [R^T{q} bRef]x   0 ]
     Eigen::Matrix<double, 3, 6> H = Eigen::Matrix<double, 3, 6>::Zero();
     H.block<3, 3>(0, 0) = skew(zHat);
     H.block<3, 3>(0, 3) = Eigen::Matrix3d::Zero();

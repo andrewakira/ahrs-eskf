@@ -50,13 +50,6 @@ RUN cd /tmp && wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.
         make install && \
         cd / && rm -rf /tmp/eigen-3.4.0
 
-RUN cd /tmp && wget https://github.com/strasdat/Sophus/archive/refs/tags/1.24.6.tar.gz && \
-        tar -xzf 1.24.6.tar.gz && \
-        cd Sophus-1.24.6 && \
-        mkdir build && cd build && \
-        cmake .. && \
-        make install && \
-        cd / && rm -rf /tmp/Sophus-1.24.6
 
 RUN cd /tmp && git clone https://github.com/stevenlovegrove/Pangolin.git && \
         cd Pangolin && \
