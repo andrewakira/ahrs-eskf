@@ -1,17 +1,53 @@
 #include "ImuAttitudeFilter.hpp"
 
-ImuAttitudeFilter::ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise) {
+ImuAttitudeFilter::ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise, double initialCovarianceStd) {
     this->sigmaGyroBiasNoise = sigmaGyroBiasNoise;
     this->sigmaGyroNoise = sigmaGyroNoise;
     this->sigmaAcceNoise = sigmaAcceNoise;  
 
     this->qNominal = Eigen::Quaterniond::Identity();
     this->bgNominal = Eigen::Vector3d::Zero();
-    this->P = Eigen::Matrix<double, 6, 6>::Identity();
+    this->P = Eigen::Matrix<double, 6, 6>::Identity() * (initialCovarianceStd * initialCovarianceStd);
     this->hasLastImu = false; 
 }
 
 ImuAttitudeFilter::~ImuAttitudeFilter() {
+}
+
+bool ImuAttitudeFilter::initState(const IMU& imu) {
+    if (initCount >= initMaxCount) {
+        return true;
+    }
+     
+    double aNorm = imu.acce.norm();
+    if (std::abs(aNorm - gravityNorm) > accelGate) {
+        initCount = 0;
+        accelMean.setZero();
+        gyroMean.setZero();
+        return false;
+    }
+
+    if (imu.gyro.norm() > gyroGate) {
+        initCount = 0;
+        accelMean.setZero();
+        gyroMean.setZero();
+        return false;
+    }
+
+    const Eigen::Vector3d a = imu.acce / aNorm;
+    accelMean += a / initMaxCount;
+    gyroMean += imu.gyro / initMaxCount;
+    initCount++;
+
+    if (initCount >= initMaxCount) {
+        // Beacause accelMean - R^T gravityRefWorld = 0, so we need to find R by Quaterniond::FromTwoVectors
+        Eigen::Quaterniond q = Eigen::Quaterniond::FromTwoVectors(accelMean, gravityRefWorld);
+        qNominal = q.normalized();
+        bgNominal = gyroMean;
+        return true;
+    }
+    
+    return false;
 }
 
 void ImuAttitudeFilter::predict(const IMU& imu) {
@@ -52,13 +88,13 @@ void ImuAttitudeFilter::predict(const IMU& imu) {
 
 void ImuAttitudeFilter::update(const Eigen::Vector3d& z, const Eigen::Vector3d& bRef, const double measureStd) {
     Eigen::Matrix3d  Rq = qNominal.toRotationMatrix();
-    Eigen::Vector3d zHat = Rq * bRef;
+    Eigen::Vector3d zHat = Rq.transpose() * bRef;
     const Eigen::Vector3d r = z - zHat;
 
     // 1. Kalman Gain K
-    // H = [ -R(q) [bRef]x   0 ]
+    // H = [ [R^T{q} bRef]x   0 ]
     Eigen::Matrix<double, 3, 6> H = Eigen::Matrix<double, 3, 6>::Zero();
-    H.block<3, 3>(0, 0) = -Rq * skew(bRef) ;//* rightJacobianSO3();
+    H.block<3, 3>(0, 0) = skew(zHat);
     H.block<3, 3>(0, 3) = Eigen::Matrix3d::Zero();
 
     //K = PH^T(HPH^T+R)^{-1}
@@ -100,10 +136,17 @@ bool ImuAttitudeFilter::updateAccel(const IMU& imu) {
     }
 
     const Eigen::Vector3d z = imu.acce / aNorm;
-    const Eigen::Vector3d bRef(0.0, 0.0, 1.0);
 
-    update(z, bRef, sigmaAcceNoise);
+    update(z, gravityRefWorld, sigmaAcceNoise);
     return true;
+}
+
+Eigen::Quaterniond ImuAttitudeFilter::getQuaternion() {
+    return qNominal;
+}
+
+Eigen::Vector3d ImuAttitudeFilter::getBgNominal() {
+    return bgNominal;
 }
 
 

@@ -10,13 +10,16 @@
 
 class ImuAttitudeFilter  {
 public:
-    ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise);
+    ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise, double initialCovarianceStd);
     ~ImuAttitudeFilter();
 
-    void staticCalib(const IMU& imu);
+    bool initState(const IMU& imu);
     void predict(const IMU& imu);
     bool updateAccel(const IMU& imu);
     void reset();
+
+    Eigen::Quaterniond getQuaternion();
+    Eigen::Vector3d getBgNominal();
 
     static Eigen::Quaterniond rotvecToQuat(const Eigen::Vector3d& rotvec);
     static Eigen::Matrix3d rotvecToMatrix(const Eigen::Vector3d& rotvec);
@@ -35,22 +38,23 @@ private:
     Eigen::Quaterniond qNominal;
     Eigen::Vector3d bgNominal;
 
-    //Eigen::Matrix<double, 6, 6> Fx;
     Eigen::Matrix<double, 6, 6> P;
-
-    Eigen::Matrix<double, 6, 6> Q;
-    //Eigen::Matrix<double, 6, 6> G;
-    Eigen::Matrix<double, 3, 3> RN;
-    //Eigen::Matrix<double, 3, 6> H;
-    //Eigen::Matrix<double, 6, 3> K;
 
     double sigmaGyroBiasNoise;      // rad/s
     double sigmaGyroNoise;          // rad/(s*sqrt(s))
     double sigmaAcceNoise;
     double gravityNorm = 9.81;
     double accelGate = 0.5;
+    double gyroGate = 0.1; // 5 degree/s
 
+    const Eigen::Vector3d gravityRefWorld = Eigen::Vector3d(0.0, 0.0, 1.0);
 
+    const int initMaxCount = 10;
+    int initCount = 0;
+    Eigen::Vector3d accelMean;
+    Eigen::Vector3d gyroMean;
+    //Eigen::Vector3d initbgNominal;
+    //Eigen::Quaterniond initqNominal;
 };
 
 
