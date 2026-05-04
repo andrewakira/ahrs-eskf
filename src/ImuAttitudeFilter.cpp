@@ -22,7 +22,7 @@ bool ImuAttitudeFilter::initState(const IMU& imu) {
         return true;
     }
      
-    double aNorm = imu.acce.norm();
+    double aNorm = imu.accel.norm();
     if (std::abs(aNorm - gravityNorm) > accelGate) {
         initCount = 0;
         accelMean.setZero();
@@ -47,7 +47,7 @@ bool ImuAttitudeFilter::initState(const IMU& imu) {
         }
     }
 
-    const Eigen::Vector3d a = imu.acce / aNorm;
+    const Eigen::Vector3d a = imu.accel / aNorm;
     accelMean += a / initMaxCount;
     gyroMean += imu.gyro / initMaxCount;
     if (mode == FusionMode::Imu9Axis) {
@@ -166,12 +166,12 @@ bool ImuAttitudeFilter::updateAccel(const IMU& imu) {
         return false;
     }
 
-    double aNorm = imu.acce.norm();
+    double aNorm = imu.accel.norm();
     if (std::abs(aNorm - gravityNorm) > accelGate) {
         return false;
     }
 
-    const Eigen::Vector3d z = imu.acce / aNorm;
+    const Eigen::Vector3d z = imu.accel / aNorm;
 
     update(z, gravityRefWorld, sigmaAccelNoise);
     return true;

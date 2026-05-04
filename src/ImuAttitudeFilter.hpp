@@ -21,7 +21,6 @@ public:
     void predict(const IMU& imu);
     bool updateAccel(const IMU& imu);
     bool updateMag(const IMU& imu);
-    void reset();
 
     Eigen::Quaterniond getQuaternion();
     Eigen::Vector3d getBgNominal();
@@ -33,7 +32,6 @@ public:
     
 private:
     void update(const Eigen::Vector3d& z, const Eigen::Vector3d& bRef, const double stdMeasure);
-    void resetErrorState();
 
     FusionMode mode;
     IMU lastImu;
