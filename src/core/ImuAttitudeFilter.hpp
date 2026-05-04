@@ -10,18 +10,13 @@
 
 class ImuAttitudeFilter  {
 public:
-    enum class FusionMode {
-        Imu6Axis,
-        Imu9Axis
-    };
-    ImuAttitudeFilter(FusionMode mode, double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAccelNoise, double sigmaMagNoise, double initialCovarianceStd);
+    explicit ImuAttitudeFilter(const AHRSParams& params);
     ~ImuAttitudeFilter();
 
     bool initState(const IMU& imu);
     void predict(const IMU& imu);
     bool updateAccel(const IMU& imu);
     bool updateMag(const IMU& imu);
-    void reset();
 
     Eigen::Quaterniond getQuaternion();
     Eigen::Vector3d getBgNominal();
@@ -33,31 +28,21 @@ public:
     
 private:
     void update(const Eigen::Vector3d& z, const Eigen::Vector3d& bRef, const double stdMeasure);
-    void resetErrorState();
 
-    FusionMode mode;
     IMU lastImu;
     bool hasLastImu = false;
 
+    AHRSParams params;
 
     Eigen::Quaterniond qNominal;
     Eigen::Vector3d bgNominal;
 
     Eigen::Matrix<double, 6, 6> P;
 
-    double sigmaGyroBiasNoise;      // rad/s
-    double sigmaGyroNoise;          // rad/(s*sqrt(s))
-    double sigmaAccelNoise;
-    double sigmaMagNoise;
-    double gravityNorm = 9.81;
-    double accelGate = 0.5;
-    double gyroGate = 0.1; // 5 degree/s
-
     // ENU: x=east, y=north, z=up
     const Eigen::Vector3d gravityRefWorld = Eigen::Vector3d(0, 0, 1);
     const Eigen::Vector3d magRefWorld = Eigen::Vector3d(0, 1, 0);
 
-    const int initMaxCount = 10;
     int initCount = 0;
     Eigen::Vector3d accelMean;
     Eigen::Vector3d gyroMean;

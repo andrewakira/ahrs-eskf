@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(oak_stream)
+project(ahrs_eskf)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,42 +8,55 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  -w   -O3")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w   -O3")
 
 find_package(OpenCV REQUIRED)
-find_package(depthai CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Eigen3 3.4 REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(Pangolin REQUIRED)
 
-# building library
-add_library(depthai_sensor
-    src/DepthAISensor.cpp
+#build with csv_9dof
+add_executable(csv_9dof
+    src/app_csv_9dof.cpp
+    src/core/ImuAttitudeFilter.cpp
 )
-target_include_directories(depthai_sensor PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_link_libraries(csv_9dof PRIVATE
+    Threads::Threads
+    Eigen3::Eigen
+    ${OpenCV_LIBS}
+    ${Pangolin_LIBRARIES}
+)
+target_include_directories(csv_9dof PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
     ${OpenCV_INCLUDE_DIRS}
     ${Pangolin_INCLUDE_DIRS}
 )
-target_link_libraries(depthai_sensor PUBLIC
-    depthai::opencv
-    ${OpenCV_LIBS}
-    Threads::Threads
-    Eigen3::Eigen
-    Sophus::Sophus
-    ${Pangolin_LIBRARIES}
-)
 
-# building exe
-add_executable(oak_stream 
-    src/main.cpp
-    src/ImuAttitudeFilter.cpp
-)
+#build with depthai_6dof
+option(BUILD_DEPTHAI_APP "Build DepthAI 6DoF app" OFF)
+if(BUILD_DEPTHAI_APP)
+    find_package(depthai CONFIG REQUIRED)
 
-target_link_libraries(oak_stream PRIVATE
-    depthai_sensor
-)
+    add_executable(depthai_6dof
+        src/app_depthai_6dof.cpp
+        src/sensor/DepthAISensor.cpp
+        src/core/ImuAttitudeFilter.cpp
+    )
+    target_include_directories(depthai_6dof PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/sensor
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
+        ${OpenCV_INCLUDE_DIRS}
+        ${Pangolin_INCLUDE_DIRS}
+    )
+    target_link_libraries(depthai_6dof PRIVATE
+        depthai::opencv
+        Threads::Threads
+        Eigen3::Eigen
+        ${OpenCV_LIBS}
+        ${Pangolin_LIBRARIES}
+    )
+endif()
 
-
-# unit test
+# build with unit test
 option(BUILD_TESTS "Build tests" OFF)
 if(BUILD_TESTS)
     enable_testing()
@@ -57,10 +70,10 @@ if(BUILD_TESTS)
 
     add_executable(test_eskf
         tests/test_eskf.cpp
-        src/ImuAttitudeFilter.cpp
+        src/core/ImuAttitudeFilter.cpp
     )
     target_include_directories(test_eskf PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/core
     )
     target_link_libraries(test_eskf PRIVATE
         GTest::gtest
