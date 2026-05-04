@@ -6,14 +6,15 @@
 using namespace std;
 
 int main() {
-    ImuVisualizer viewer;
-    ImuAttitudeFilter imuAttitudeFilter(ImuAttitudeFilter::FusionMode::Imu9Axis, 0.00015702853512975353, 0.014488592710622498, 0.262, 0.262/3, 0.01);
+    AHRSParams params = AHRSParams::loadFromFile("./data/ahrs_9dof.cfg");
+    params.print();  
+    
+    ImuAttitudeFilter imuAttitudeFilter(params);
 
-    std::vector<IMU> logs;
+    vector<IMU> logs;
     ImuIO::loadWitmotionCSV("./data/witmotion_dynamic0.csv", logs);
-    cout << "Total : " << logs.size() << endl;
-    ImuIO::printIMU(logs[0]);
 
+    ImuVisualizer viewer;
     for(int i = 0; i < logs.size(); i++) {
         IMU data = logs[i];
         static bool isInit = false;

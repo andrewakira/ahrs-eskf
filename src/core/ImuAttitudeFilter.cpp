@@ -1,16 +1,10 @@
 #include "ImuAttitudeFilter.hpp"
 
-ImuAttitudeFilter::ImuAttitudeFilter(FusionMode mode, double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAccelNoise, double sigmaMagNoise, double initialCovarianceStd) {
-    this->mode = mode;    
-
-    this->sigmaGyroBiasNoise = sigmaGyroBiasNoise;
-    this->sigmaGyroNoise = sigmaGyroNoise;
-    this->sigmaAccelNoise = sigmaAccelNoise;  
-    this->sigmaMagNoise = sigmaMagNoise;
-
+ImuAttitudeFilter::ImuAttitudeFilter(const AHRSParams& params) 
+    : params(params) {
     this->qNominal = Eigen::Quaterniond::Identity();
     this->bgNominal = Eigen::Vector3d::Zero();
-    this->P = Eigen::Matrix<double, 6, 6>::Identity() * (initialCovarianceStd * initialCovarianceStd);
+    this->P = Eigen::Matrix<double, 6, 6>::Identity() * (params.stdInitialCovariance * params.stdInitialCovariance);
     this->hasLastImu = false; 
 }
 
@@ -18,27 +12,27 @@ ImuAttitudeFilter::~ImuAttitudeFilter() {
 }
 
 bool ImuAttitudeFilter::initState(const IMU& imu) {
-    if (initCount >= initMaxCount) {
+    if (initCount >= params.initMaxCount) {
         return true;
     }
      
     double aNorm = imu.accel.norm();
-    if (std::abs(aNorm - gravityNorm) > accelGate) {
+    if (std::abs(aNorm - params.gravityNorm) > params.accelGate) {
         initCount = 0;
         accelMean.setZero();
         gyroMean.setZero();
         return false;
     }
 
-    if (imu.gyro.norm() > gyroGate) {
+    if (imu.gyro.norm() > params.gyroGate) {
         initCount = 0;
         accelMean.setZero();
         gyroMean.setZero();
         return false;
     }
 
-    if (mode == FusionMode::Imu9Axis) {
-        if (imu.mag.norm() < 5 || imu.mag.norm() > 80) {
+    if (params.fusionMode == AHRSParams::FusionMode::Imu9Axis) {
+        if (imu.mag.norm() < params.lowMagGate || imu.mag.norm() > params.highMagGate) {
             initCount = 0;
             accelMean.setZero();
             gyroMean.setZero();
@@ -48,21 +42,21 @@ bool ImuAttitudeFilter::initState(const IMU& imu) {
     }
 
     const Eigen::Vector3d a = imu.accel / aNorm;
-    accelMean += a / initMaxCount;
-    gyroMean += imu.gyro / initMaxCount;
-    if (mode == FusionMode::Imu9Axis) {
-        magMean += imu.mag / initMaxCount;
+    accelMean += a / params.initMaxCount;
+    gyroMean += imu.gyro / params.initMaxCount;
+    if (params.fusionMode == AHRSParams::FusionMode::Imu9Axis) {
+        magMean += imu.mag / params.initMaxCount;
     }
     initCount++;
 
-    if (initCount >= initMaxCount) {
-        if (mode == FusionMode::Imu6Axis) {
+    if (initCount >= params.initMaxCount) {
+        if (params.fusionMode == AHRSParams::FusionMode::Imu6Axis) {
             // Beacause accelMean - R^T gravityRefWorld = 0, so we need to find R by Quaterniond::FromTwoVectors
             Eigen::Quaterniond q = Eigen::Quaterniond::FromTwoVectors(accelMean, gravityRefWorld);
             qNominal = q.normalized();
             bgNominal = gyroMean;
             return true;
-        } else if (mode == FusionMode::Imu9Axis) {
+        } else if (params.fusionMode == AHRSParams::FusionMode::Imu9Axis) {
             Eigen::Vector3d upB = accelMean.normalized();
             Eigen::Vector3d mB = magMean.normalized();
 
@@ -111,11 +105,11 @@ void ImuAttitudeFilter::predict(const IMU& imu) {
     Eigen::Matrix<double, 6, 6> Fx = Eigen::Matrix<double, 6, 6>::Identity();
     Fx.block<3, 3>(0, 0) = rotvecToMatrix(dtheta).transpose();
     Fx.block<3, 3>(0, 3) = Eigen::Matrix3d::Identity() * -dt;
-    //Q = [ dt^2 * sigmaGyroNoise^2 * I |                             0] 
-    //    [ 0                           | dt * sigmaGyroBiasNoise^2 * I]
+    //Q = [ dt^2 * stdGyroNoise^2 * I |                             0] 
+    //    [ 0                           | dt * stdGyroBiasNoise^2 * I]
     Eigen::Matrix<double, 6, 6> Q = Eigen::Matrix<double, 6, 6>::Identity();
-    Q.block<3, 3>(0, 0) *= (dt * dt * sigmaGyroNoise * sigmaGyroNoise) ;
-    Q.block<3, 3>(3, 3) *= (dt * sigmaGyroBiasNoise * sigmaGyroBiasNoise);
+    Q.block<3, 3>(0, 0) *= (dt * dt * params.stdGyroNoise * params.stdGyroNoise) ;
+    Q.block<3, 3>(3, 3) *= (dt * params.stdGyroBiasNoise * params.stdGyroBiasNoise);
 
     P = Fx*P*Fx.transpose() + Q;
 
@@ -167,20 +161,20 @@ bool ImuAttitudeFilter::updateAccel(const IMU& imu) {
     }
 
     double aNorm = imu.accel.norm();
-    if (std::abs(aNorm - gravityNorm) > accelGate) {
+    if (std::abs(aNorm - params.gravityNorm) > params.accelGate) {
         return false;
     }
 
     const Eigen::Vector3d z = imu.accel / aNorm;
 
-    update(z, gravityRefWorld, sigmaAccelNoise);
+    update(z, gravityRefWorld, params.stdAccelNoise);
     return true;
 }
 
 
 bool ImuAttitudeFilter::updateMag(const IMU& imu) {
-    if (mode != FusionMode::Imu9Axis) {
-        throw std::logic_error("Make sure fusion mode is setting on Imu9axis");
+    if (params.fusionMode != AHRSParams::FusionMode::Imu9Axis) {
+        throw std::logic_error("Make sure fusion fusionMode is setting on Imu9axis");
     }
 
     if (!hasLastImu) {
@@ -188,7 +182,7 @@ bool ImuAttitudeFilter::updateMag(const IMU& imu) {
     }
 
     double mNorm = imu.mag.norm();
-    if (mNorm < 15.0 || mNorm > 80.0) {
+    if (mNorm < params.lowMagGate || mNorm > params.highMagGate) {
         return false;
     }
 
@@ -216,7 +210,7 @@ bool ImuAttitudeFilter::updateMag(const IMU& imu) {
     }
     northB.normalize();
 
-    update(northB, magRefWorld, sigmaMagNoise);
+    update(northB, magRefWorld, params.stdMagNoise);
     return true;
 }
 

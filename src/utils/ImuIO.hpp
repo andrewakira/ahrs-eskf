@@ -9,6 +9,7 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include "common.hpp"
 
 class ImuCsvLogger {
 public:

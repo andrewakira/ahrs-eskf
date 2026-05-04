@@ -8,13 +8,13 @@
 using namespace cv;
 using namespace std;
 
-
 int main(int argc, char** argv) {
+    AHRSParams params = AHRSParams::loadFromFile("./data/ahrs_6dof.cfg");
+    params.print();
+
+    ImuAttitudeFilter imuAttitudeFilter(params); 
+ 
     ImuVisualizer viewer;
-    
-    ImuAttitudeFilter imuAttitudeFilter(ImuAttitudeFilter::FusionMode::Imu6Axis, 0.00015702853512975353, 0.014488592710622498, 0.2624646451739678*10,  0.2624646451739678*10, 0.01);
-    
-    
     DepthAISensor depthAISensor;
     depthAISensor.setImuCallback(
         [&viewer, &imuAttitudeFilter](const DepthAISensor::ImuData& imu) {
