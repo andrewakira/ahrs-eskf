@@ -306,6 +306,27 @@ public:
         std::cout << "angle : " << d.angle.transpose() << std::endl;
         std::cout << "q : " << d.q.w() << " " << d.q.x() << " " << d.q.y() << " " << d.q.z() << std::endl;
     }
+
+    static Eigen::Vector3d quatToWitionEulerDegree(const Eigen::Quaterniond& q) {
+        double w = q.w();
+        double x = q.x();
+        double y = q.y();
+        double z = q.z();
+
+        double roll = atan2(2.0*(w*x + y*z),
+                            1.0 - 2.0*(x*x + y*y));
+
+        double pitch = asin(std::clamp(2.0*(w*y - z*x), -1.0, 1.0));
+
+        double yaw = atan2(2.0*(w*z + x*y),
+                        1.0 - 2.0*(y*y + z*z));
+
+        return Eigen::Vector3d(
+            roll * 180.0 / M_PI,
+            pitch * 180.0 / M_PI,
+            yaw * 180.0 / M_PI
+        );
+    }
 };
 
 #endif

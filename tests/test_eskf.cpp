@@ -53,8 +53,11 @@ TEST(rotvecToMatrix, XAxis180Deg) {
 TEST(rotvecToMatrix, SmallAngleReturnsIdentity) {
     Eigen::Vector3d w(1e-10, 2e-10, -1e-10);
     Eigen::Matrix3d R = ImuAttitudeFilter::rotvecToMatrix(w);
-    std::cout << R << std::endl;
-    EXPECT_TRUE(R.isApprox(Eigen::Matrix3d::Identity(), 1e-12));
+
+    Eigen::Matrix3d Rgt;
+    Rgt << 1, 1e-10, 2e-10, -1e-10, 1, -1e-10, -2e-10, 1e-10, 1;
+    
+    EXPECT_TRUE(R.isApprox(Rgt, 1e-12));
 }
 
 TEST(rotvecToMatrix, ValidRotationMatrix) {

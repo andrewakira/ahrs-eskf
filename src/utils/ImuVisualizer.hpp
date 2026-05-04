@@ -66,6 +66,7 @@ public:
         poseView = &pangolin::Display("pose")
             .SetBounds(0.0, 1.0, pangolin::Attach::Pix(180), 1.0)
             .SetHandler(handler3D.get());
+        printf("[ImuVisualizer] poseview : x axis(red), y axis(green), z aixs(blue)\n");
     }
 
     void pushImu(double ax, double ay, double az,
