@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(oak_stream)
+project(ahrs_eskf)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,15 +11,15 @@ find_package(OpenCV REQUIRED)
 find_package(depthai CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 find_package(Eigen3 3.4 REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(Pangolin REQUIRED)
 
 # building library
 add_library(depthai_sensor
-    src/DepthAISensor.cpp
+    src/sensor/DepthAISensor.cpp
 )
 target_include_directories(depthai_sensor PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/sensor
     ${OpenCV_INCLUDE_DIRS}
     ${Pangolin_INCLUDE_DIRS}
 )
@@ -28,17 +28,16 @@ target_link_libraries(depthai_sensor PUBLIC
     ${OpenCV_LIBS}
     Threads::Threads
     Eigen3::Eigen
-    Sophus::Sophus
     ${Pangolin_LIBRARIES}
 )
 
 # building exe
-add_executable(oak_stream 
+add_executable(ahrs_eskf 
     src/main.cpp
     src/ImuAttitudeFilter.cpp
 )
 
-target_link_libraries(oak_stream PRIVATE
+target_link_libraries(ahrs_eskf PRIVATE
     depthai_sensor
 )
 
