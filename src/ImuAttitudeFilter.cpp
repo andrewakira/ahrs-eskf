@@ -1,9 +1,12 @@
 #include "ImuAttitudeFilter.hpp"
 
-ImuAttitudeFilter::ImuAttitudeFilter(double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAcceNoise, double initialCovarianceStd) {
+ImuAttitudeFilter::ImuAttitudeFilter(FusionMode mode, double sigmaGyroBiasNoise, double sigmaGyroNoise, double sigmaAccelNoise, double sigmaMagNoise, double initialCovarianceStd) {
+    this->mode = mode;    
+
     this->sigmaGyroBiasNoise = sigmaGyroBiasNoise;
     this->sigmaGyroNoise = sigmaGyroNoise;
-    this->sigmaAcceNoise = sigmaAcceNoise;  
+    this->sigmaAccelNoise = sigmaAccelNoise;  
+    this->sigmaMagNoise = sigmaMagNoise;
 
     this->qNominal = Eigen::Quaterniond::Identity();
     this->bgNominal = Eigen::Vector3d::Zero();
@@ -34,17 +37,50 @@ bool ImuAttitudeFilter::initState(const IMU& imu) {
         return false;
     }
 
+    if (mode == FusionMode::Imu9Axis) {
+        if (imu.mag.norm() < 5 || imu.mag.norm() > 80) {
+            initCount = 0;
+            accelMean.setZero();
+            gyroMean.setZero();
+            magMean.setZero();
+            return false;
+        }
+    }
+
     const Eigen::Vector3d a = imu.acce / aNorm;
     accelMean += a / initMaxCount;
     gyroMean += imu.gyro / initMaxCount;
+    if (mode == FusionMode::Imu9Axis) {
+        magMean += imu.mag / initMaxCount;
+    }
     initCount++;
 
     if (initCount >= initMaxCount) {
-        // Beacause accelMean - R^T gravityRefWorld = 0, so we need to find R by Quaterniond::FromTwoVectors
-        Eigen::Quaterniond q = Eigen::Quaterniond::FromTwoVectors(accelMean, gravityRefWorld);
-        qNominal = q.normalized();
-        bgNominal = gyroMean;
-        return true;
+        if (mode == FusionMode::Imu6Axis) {
+            // Beacause accelMean - R^T gravityRefWorld = 0, so we need to find R by Quaterniond::FromTwoVectors
+            Eigen::Quaterniond q = Eigen::Quaterniond::FromTwoVectors(accelMean, gravityRefWorld);
+            qNominal = q.normalized();
+            bgNominal = gyroMean;
+            return true;
+        } else if (mode == FusionMode::Imu9Axis) {
+            Eigen::Vector3d upB = accelMean.normalized();
+            Eigen::Vector3d mB = magMean.normalized();
+
+            Eigen::Vector3d eastB = mB.cross(upB);
+            eastB.normalize();
+
+            Eigen::Vector3d northB = upB.cross(eastB).normalized();
+
+            Eigen::Matrix3d Rw2b;
+            Rw2b.col(0) = eastB;
+            Rw2b.col(1) = northB;
+            Rw2b.col(2) = upB;
+
+            Eigen::Matrix3d Rb2w = Rw2b.transpose();
+            qNominal = Eigen::Quaterniond(Rb2w).normalized();
+            bgNominal = gyroMean;
+            return true;
+        }
     }
     
     return false;
@@ -137,9 +173,53 @@ bool ImuAttitudeFilter::updateAccel(const IMU& imu) {
 
     const Eigen::Vector3d z = imu.acce / aNorm;
 
-    update(z, gravityRefWorld, sigmaAcceNoise);
+    update(z, gravityRefWorld, sigmaAccelNoise);
     return true;
 }
+
+
+bool ImuAttitudeFilter::updateMag(const IMU& imu) {
+    if (mode != FusionMode::Imu9Axis) {
+        throw std::logic_error("Make sure fusion mode is setting on Imu9axis");
+    }
+
+    if (!hasLastImu) {
+        return false;
+    }
+
+    double mNorm = imu.mag.norm();
+    if (mNorm < 15.0 || mNorm > 80.0) {
+        return false;
+    }
+
+    Eigen::Vector3d mB = imu.mag / mNorm;
+
+    Eigen::Matrix3d Rq = qNominal.toRotationMatrix();
+
+    // world up expressed in body frame
+    Eigen::Vector3d upB = Rq.transpose() * gravityRefWorld;
+    upB.normalize();
+
+    // east = m x up
+    Eigen::Vector3d eastB = mB.cross(upB);
+    double eastNorm = eastB.norm();
+    if (eastNorm < 1e-6) {
+        return false;
+    }
+    eastB.normalize();
+
+    // north = up x east
+    Eigen::Vector3d northB = upB.cross(eastB);
+    double northNorm = northB.norm();
+    if (northNorm < 1e-6) {
+        return false;
+    }
+    northB.normalize();
+
+    update(northB, magRefWorld, sigmaMagNoise);
+    return true;
+}
+
 
 Eigen::Quaterniond ImuAttitudeFilter::getQuaternion() {
     return qNominal;
