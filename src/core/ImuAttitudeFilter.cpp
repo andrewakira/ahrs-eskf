@@ -5,6 +5,11 @@ ImuAttitudeFilter::ImuAttitudeFilter(const AHRSParams& params)
     this->P = Eigen::Matrix<double, 6, 6>::Identity() * (params.stdInitialCovariance * params.stdInitialCovariance);
 }
 
+ImuAttitudeFilter::ImuAttitudeFilter(const std::string paramsPath) {
+    this->params = AHRSParams::loadFromFile(paramsPath);
+    this->P = Eigen::Matrix<double, 6, 6>::Identity() * (params.stdInitialCovariance * params.stdInitialCovariance);
+}
+
 ImuAttitudeFilter::~ImuAttitudeFilter() {
 }
 

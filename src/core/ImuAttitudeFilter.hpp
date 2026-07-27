@@ -11,6 +11,7 @@
 class ImuAttitudeFilter  {
 public:
     explicit ImuAttitudeFilter(const AHRSParams& params);
+    explicit ImuAttitudeFilter(const std::string paramsPath);
     ~ImuAttitudeFilter();
 
     bool initState(const IMU& imu);
