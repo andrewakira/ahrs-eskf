@@ -34,8 +34,8 @@ private:
 
     AHRSParams params;
 
-    Eigen::Quaterniond qNominal;
-    Eigen::Vector3d bgNominal;
+    Eigen::Quaterniond qNominal = Eigen::Quaterniond::Identity();
+    Eigen::Vector3d bgNominal = Eigen::Vector3d::Zero();
 
     Eigen::Matrix<double, 6, 6> P;
 
@@ -44,9 +44,9 @@ private:
     const Eigen::Vector3d magRefWorld = Eigen::Vector3d(0, 1, 0);
 
     int initCount = 0;
-    Eigen::Vector3d accelMean;
-    Eigen::Vector3d gyroMean;
-    Eigen::Vector3d magMean;
+    Eigen::Vector3d accelMean = Eigen::Vector3d::Zero();
+    Eigen::Vector3d gyroMean = Eigen::Vector3d::Zero();
+    Eigen::Vector3d magMean = Eigen::Vector3d::Zero();
 };
 
 
