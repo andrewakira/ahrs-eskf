@@ -2,10 +2,12 @@
 
 ImuAttitudeFilter::ImuAttitudeFilter(const AHRSParams& params) 
     : params(params) {
-    this->qNominal = Eigen::Quaterniond::Identity();
-    this->bgNominal = Eigen::Vector3d::Zero();
     this->P = Eigen::Matrix<double, 6, 6>::Identity() * (params.stdInitialCovariance * params.stdInitialCovariance);
-    this->hasLastImu = false; 
+}
+
+ImuAttitudeFilter::ImuAttitudeFilter(const std::string paramsPath) {
+    this->params = AHRSParams::loadFromFile(paramsPath);
+    this->P = Eigen::Matrix<double, 6, 6>::Identity() * (params.stdInitialCovariance * params.stdInitialCovariance);
 }
 
 ImuAttitudeFilter::~ImuAttitudeFilter() {
